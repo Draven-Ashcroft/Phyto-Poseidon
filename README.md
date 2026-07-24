@@ -1,7 +1,7 @@
 # Hydrotropism Simulator 💧
 
 <p align="center">
-  <img src="assets/banner.png" alt="Hydrotropism Simulator Banner" width="100%">
+  <img src="assets/repo-banner.png" alt="Hydrotropism Simulator Banner" width="100%">
 </p>
 
 A clean, interactive educational web simulation modeling plant root hydrotropism. Explore how plant roots perceive and bend toward moisture gradients, balancing hydrotropic response against other environmental directional cues.
