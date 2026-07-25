@@ -209,6 +209,12 @@
     <button id="magBtn" title="Show Magnifier">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.3" cy="10.3" r="6"></circle><line x1="14.8" y1="14.8" x2="20" y2="20" stroke-linecap="round"></line></svg>
     </button>
+    <button id="magScaleDownBtn" title="Shrink Magnifier">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.3" cy="10.3" r="6"></circle><line x1="14.8" y1="14.8" x2="20" y2="20" stroke-linecap="round"></line><line x1="7.3" y1="10.3" x2="13.3" y2="10.3" stroke-linecap="round"></line></svg>
+    </button>
+    <button id="magScaleUpBtn" title="Enlarge Magnifier">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.3" cy="10.3" r="6"></circle><line x1="14.8" y1="14.8" x2="20" y2="20" stroke-linecap="round"></line><line x1="7.3" y1="10.3" x2="13.3" y2="10.3" stroke-linecap="round"></line><line x1="10.3" y1="7.3" x2="10.3" y2="13.3" stroke-linecap="round"></line></svg>
+    </button>
     <div class="slider-row">
       <svg class="mini-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.5)" stroke-width="1.6"></circle><path d="M12 7v5l3.5 2" stroke="rgba(255,255,255,0.5)" stroke-width="1.6" stroke-linecap="round"></path></svg>
       <input type="range" id="hoursSlider" min="0" max="72" step="0.1" value="0" />
@@ -523,7 +529,7 @@ const FILL_UPPER = ["#ede0bd", "#e3d3a9"]; // dry side
 const FILL_LOWER = ["#cdbd94", "#c2b188"]; // moist side, slightly cooler/darker
 
 let CELL_PATHS = [];
-let magX = 150, magY = 150, magDragging = false, magAnimId = null;
+let magX = 150, magY = 150, magScale = 1, magDragging = false, magAnimId = null;
 let tipPositions = {};
 const magParticles = [];
 
@@ -753,8 +759,30 @@ function stepMagnifier() {
   if (magnifierOn) magAnimId = requestAnimationFrame(stepMagnifier);
 }
 
+function clampMagPosition() {
+  // Margin scales with the lens so it never overhangs the panel edges at
+  // any size — same margin the original hand-tuned bounds used (~176px
+  // at scale 1), just made proportional instead of fixed.
+  const margin = 176 * magScale;
+  magX = Math.max(margin, Math.min(900 - margin, magX));
+  magY = Math.max(margin, Math.min(500 - margin, magY));
+}
+
 function positionMagnifier() {
-  document.getElementById("magnifier").setAttribute("transform", `translate(${magX.toFixed(1)}, ${magY.toFixed(1)})`);
+  document.getElementById("magnifier").setAttribute(
+    "transform",
+    `translate(${magX.toFixed(1)}, ${magY.toFixed(1)}) scale(${magScale.toFixed(2)})`
+  );
+}
+
+function setMagScale(delta) {
+  // Capped at 1.4, not a round number picked freely — above ~1.42 the
+  // margin (176*scale) exceeds half the panel height (500px), which
+  // inverts the vertical clamp range. Verified against that exact
+  // constraint when this was built for the gravitropism simulator.
+  magScale = Math.max(0.7, Math.min(1.4, magScale + delta));
+  clampMagPosition();
+  positionMagnifier();
 }
 
 let magnifierOn = false;
@@ -921,6 +949,9 @@ document.getElementById("flowBtn").addEventListener("click", () => setFlow(!flow
 
 document.getElementById("magBtn").addEventListener("click", () => setMagnifier(!magnifierOn));
 
+document.getElementById("magScaleDownBtn").addEventListener("click", () => setMagScale(-0.15));
+document.getElementById("magScaleUpBtn").addEventListener("click", () => setMagScale(0.15));
+
 (function setupMagnifierDrag() {
   const mag = document.getElementById("magnifier");
   mag.addEventListener("pointerdown", (e) => {
@@ -931,8 +962,9 @@ document.getElementById("magBtn").addEventListener("click", () => setMagnifier(!
   mag.addEventListener("pointermove", (e) => {
     if (!magDragging) return;
     const p = toSvgPoint(e);
-    magX = Math.max(166, Math.min(724, p.x));
-    magY = Math.max(176, Math.min(329, p.y));
+    magX = p.x;
+    magY = p.y;
+    clampMagPosition();
     positionMagnifier();
   });
   mag.addEventListener("pointerup", (e) => {
