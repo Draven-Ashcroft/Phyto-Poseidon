@@ -76,7 +76,60 @@
   }
   .stat-card .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.4); margin: 0 0 4px; }
   .stat-card p { font-size: 13px; color: rgba(255,255,255,0.9); line-height: 1.4; margin: 0; }
-  .caption { font-size: 12px; color: rgba(255,255,255,0.4); line-height: 1.5; margin-top: 12px; }
+  .info-card {
+    border: 1px solid rgba(255,255,255,0.1);
+    background: #131519;
+    border-radius: 18px;
+    margin-top: 12px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    overflow: hidden;
+  }
+  .info-card-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.85);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 14px 16px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 150ms ease;
+  }
+  .info-card-header:hover { background: rgba(255,255,255,0.04); }
+  .info-card-header:focus-visible {
+    outline: 2px solid rgba(140,190,90,0.7);
+    outline-offset: -2px;
+  }
+  .info-card-arrow { transition: transform 350ms ease-in-out; }
+  .info-card[data-expanded="true"] .info-card-arrow { transform: rotate(180deg); }
+  .info-card-panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition: grid-template-rows 350ms ease-in-out, opacity 350ms ease-in-out;
+  }
+  .info-card[data-expanded="true"] .info-card-panel {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  .info-card-panel-inner { overflow: hidden; }
+  .info-card-body {
+    padding: 0 16px 16px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.7);
+    line-height: 1.55;
+  }
+  .info-card-body p { margin: 0; }
+  .info-card-body strong { color: rgba(255,255,255,0.85); font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) {
+    .info-card-arrow, .info-card-panel, .info-card-header { transition: none; }
+  }
   #magnifier { transition: opacity .3s ease; cursor: grab; touch-action: none; }
   #magLeaderLine { transition: opacity .35s ease; }
   #magnifier.dragging { cursor: grabbing; }
@@ -237,7 +290,19 @@
     </div>
   </div>
 
-  <p class="caption">Positive hydrotropism: roots curve toward regions of higher soil moisture, bending growth away from the straight vertical path even though gravity is acting equally on both pots. The magnifier's auxin explanation is a simplified teaching analogy borrowed from gravitropism's mechanism, not the currently documented driver of hydrotropism (research points to cytokinin/MIZ1 signaling instead) — and it isn't part of the NCERT syllabus, which describes hydrotropism observationally only.</p>
+  <div class="info-card" id="infoCard" data-expanded="false">
+    <button class="info-card-header" id="infoCardToggle" aria-expanded="false" aria-controls="infoCardContent">
+      <span class="info-card-title">Extra Information</span>
+      <svg class="mini-icon info-card-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+    <div class="info-card-panel">
+      <div class="info-card-panel-inner">
+        <div class="info-card-body" id="infoCardContent" role="region" aria-labelledby="infoCardToggle">
+          <p>This simulator uses an <strong>auxin-based teaching model</strong> to explain root bending. Current research suggests hydrotropism also involves <strong>MIZ1</strong> and <strong>cytokinin</strong> signaling. <em>Beyond NCERT Class 10.</em></p>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -981,6 +1046,13 @@ document.getElementById("resetBtn").addEventListener("click", () => {
 });
 
 document.getElementById("flowBtn").addEventListener("click", () => setFlow(!flowOn));
+
+document.getElementById("infoCardToggle").addEventListener("click", () => {
+  const card = document.getElementById("infoCard");
+  const expanded = card.getAttribute("data-expanded") === "true";
+  card.setAttribute("data-expanded", (!expanded).toString());
+  document.getElementById("infoCardToggle").setAttribute("aria-expanded", (!expanded).toString());
+});
 
 document.getElementById("magBtn").addEventListener("click", () => setMagnifier(!magnifierOn));
 
