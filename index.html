@@ -580,6 +580,12 @@ function rootMarkup(pts) {
    request, with an explicit on-screen "simplified model" tag.
    ========================================================================= */
 const TIP_RX = 110, TIP_RY = 56;
+// Separate, larger bounds for the active-state safety clamp — the
+// mesh's real lower-edge reach is ~134x61 at full growth, which
+// TIP_RX/TIP_RY (sized for the old abstract-bias system) was too small
+// to contain. Verified safe clamp-ratio and inside the 156 lens radius
+// once the edge inset is applied.
+const AUXIN_CLAMP_RX = 200, AUXIN_CLAMP_RY = 105;
 const MAG_PARTICLE_COUNT = 34;
 const MAG_TIP_THRESHOLD = 198;
 const LEFT_MESH_X = -134, TIP_MESH_X = 118, HALF_H = 60, RIGID_BOUNDARY_X = 33;
@@ -598,6 +604,7 @@ const FILL_UPPER = ["#ede0bd", "#e3d3a9"]; // dry side
 const FILL_LOWER = ["#cdbd94", "#c2b188"]; // moist side, slightly cooler/darker
 
 let CELL_PATHS = [];
+let auxinEdgePts = []; // outer boundary of the lower (moist/non-elongating) side — auxin targets these directly, matching real cell positions instead of an abstract bias direction
 let magX = 150, magY = 150, magScale = 0.75, magDragging = false, magAnimId = null;
 let tipPositions = {};
 const magParticles = [];
@@ -619,7 +626,6 @@ function initMagParticles() {
       x: Math.cos(a) * TIP_RX * r,
       y: Math.sin(a) * TIP_RY * r,
       vx: 0, vy: 0,
-      biasFactor: 0.6 + Math.random() * 0.8,
       el,
     });
   }
@@ -689,6 +695,15 @@ function updateCellGrid(stim, curlAngle) {
     }
   }
 
+  // Outer edge of the lower (moist) side, from the curl/growth zone
+  // onward (skipping the still-rigid base) — auxin concentrates here,
+  // opposite the elongating upper side, matching real root biology
+  // (auxin inhibits root elongation).
+  auxinEdgePts = [];
+  for (let i = RIGID_STEPS; i < M; i++) {
+    auxinEdgePts.push(lowerB[N_LOWER][i]);
+  }
+
   CELL_PATHS.forEach(({ el, row, col }) => {
     let p1, p2, p3, p4;
     if (row < N_UPPER) {
@@ -735,9 +750,7 @@ let redZoneX = 0, redZoneY = 0;
 
 function updateMagLabel() {
   const candidates = [
-    { key: "leftShoot",  name: "Shoot Tip", pot: "left"  },
     { key: "leftRoot",   name: "Root Tip",  pot: "left"  },
-    { key: "rightShoot", name: "Shoot Tip", pot: "right" },
     { key: "rightRoot",  name: "Root Tip",  pot: "right" },
   ];
   let best = null, bestDist = Infinity, bestPoint = null;
@@ -784,24 +797,33 @@ function stepMagnifier() {
   document.getElementById("magMoistLabel").setAttribute("opacity", isRightRoot ? "0.9" : "0");
   document.getElementById("magDryLabel").setAttribute("opacity", isRightRoot ? "0.9" : "0");
 
-  // Auxin particles — bias toward the moist side (+y, same direction as the
-  // gravitropism build's "lower"/inhibited side), strength driven by stim.
-  const bias = 0.11 * stim;
-  const springK = 0.0035 + 0.007 * (1 - stim);
+  // Auxin particles now target the ACTUAL outer edge of the moist
+  // (lower) side of the mesh, captured fresh above, rather than
+  // drifting toward an abstract bias direction — the concentration
+  // should visibly land ON specific cells, not just shift a vague
+  // cloud sideways. Target scales proportionally with stim, and a
+  // small inward inset keeps it visibly inside the root rather than
+  // sitting right on the boundary.
+  const springK = 0.02;
+  const EDGE_INSET = 0.82;
+  const JITTER = 0.4; // kept constant regardless of spring state, so particles stay in slight motion even once settled, rather than freezing
   let sumX = 0, sumY = 0;
-  magParticles.forEach((p) => {
-    p.vx += (Math.random() - 0.5) * 0.55 - p.x * springK;
-    p.vy += (Math.random() - 0.5) * 0.55 - p.y * springK + bias * p.biasFactor;
+  magParticles.forEach((p, idx) => {
+    const edge = auxinEdgePts.length ? auxinEdgePts[idx % auxinEdgePts.length] : { x: 0, y: 0 };
+    const targetX = edge.x * stim * EDGE_INSET;
+    const targetY = edge.y * stim * EDGE_INSET;
+    p.vx += (Math.random() - 0.5) * JITTER + (targetX - p.x) * springK;
+    p.vy += (Math.random() - 0.5) * JITTER + (targetY - p.y) * springK;
     p.vx *= 0.88;
     p.vy *= 0.88;
     p.x += p.vx;
     p.y += p.vy;
-    const nx = p.x / TIP_RX, ny = p.y / TIP_RY;
+    const nx = p.x / AUXIN_CLAMP_RX, ny = p.y / AUXIN_CLAMP_RY;
     const d = Math.hypot(nx, ny);
-    if (d > 0.96) {
-      const s = 0.96 / d;
+    if (d > 0.98) {
+      const s = 0.98 / d;
       p.x *= s; p.y *= s;
-      p.vx *= -0.55; p.vy *= -0.55;
+      p.vx *= -0.4; p.vy *= -0.4;
     }
     p.el.setAttribute("cx", p.x.toFixed(1));
     p.el.setAttribute("cy", p.y.toFixed(1));
